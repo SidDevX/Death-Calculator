@@ -1,0 +1,766 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Death Calculator</title>
+  <link href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Cinzel+Decorative:wght@400;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet"/>
+  <style>
+    :root {
+      --black: #000000;
+      --card-bg: rgba(8,4,4,0.93);
+      --red: #8b0000;
+      --red-bright: #c0392b;
+      --red-glow: #ff2020;
+      --white: #f0e6e6;
+      --muted: #7a6060;
+      --border: rgba(139,0,0,0.4);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    html, body { min-height: 100%; overflow-x: hidden; }
+
+    body {
+      background: var(--black);
+      color: var(--white);
+      font-family: 'Crimson Text', Georgia, serif;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      min-height: 100vh;
+      cursor: none;
+    }
+
+    /* Cursor */
+    #cursor {
+      position: fixed; width: 18px; height: 18px;
+      border: 1px solid var(--red-glow); border-radius: 50%;
+      pointer-events: none; z-index: 9999;
+      transform: translate(-50%,-50%);
+      box-shadow: 0 0 10px var(--red-glow), 0 0 24px rgba(255,20,20,0.3);
+      mix-blend-mode: difference;
+    }
+    #cursor-dot {
+      position: fixed; width: 4px; height: 4px;
+      background: var(--red-glow); border-radius: 50%;
+      pointer-events: none; z-index: 9999;
+      transform: translate(-50%,-50%);
+      box-shadow: 0 0 6px var(--red-glow);
+    }
+
+    /* Fog */
+    .fog-layer {
+      position: fixed; inset: 0;
+      pointer-events: none; z-index: 0; overflow: hidden;
+    }
+    .fog-layer::before, .fog-layer::after {
+      content: ''; position: absolute; width: 200%; height: 200%; top: -50%; left: -50%;
+      background: radial-gradient(ellipse 60% 40% at 30% 60%, rgba(60,0,0,0.18) 0%, transparent 70%),
+                  radial-gradient(ellipse 50% 35% at 70% 40%, rgba(40,0,0,0.14) 0%, transparent 70%);
+      animation: fogDrift 20s ease-in-out infinite alternate;
+    }
+    .fog-layer::after {
+      background: radial-gradient(ellipse 70% 45% at 60% 70%, rgba(80,0,0,0.12) 0%, transparent 65%);
+      animation: fogDrift2 28s ease-in-out infinite alternate;
+    }
+    @keyframes fogDrift  { 0%{transform:translate(0,0)scale(1);}    100%{transform:translate(4%,3%)scale(1.07);} }
+    @keyframes fogDrift2 { 0%{transform:translate(0,0)scale(1.05);} 100%{transform:translate(-5%,-4%)scale(1);} }
+
+    /* Flicker */
+    .flicker-overlay {
+      position: fixed; inset: 0; pointer-events: none; z-index: 1;
+      background: rgba(255,0,0,0.015);
+      animation: flicker 8s step-start infinite;
+    }
+    @keyframes flicker { 0%,96%,100%{opacity:1;} 97%{opacity:0.6;} 98%{opacity:1;} 99%{opacity:0.4;} }
+
+    /* Drips */
+    .drips { position: fixed; top: 0; left: 0; right: 0; height: 120px; pointer-events: none; z-index: 2; }
+    .drip {
+      width: 3px; border-radius: 0 0 50% 50%;
+      background: linear-gradient(to bottom, var(--red) 0%, var(--red-bright) 60%, transparent 100%);
+      position: absolute; top: 0;
+    }
+
+    /* Scene */
+    .scene {
+      position: relative; z-index: 10;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-start;
+      min-height: 100vh; padding: 4rem 1rem 4rem; width: 100%;
+    }
+
+    /* Card */
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border); border-radius: 2px;
+      padding: 3rem 2.8rem 2.8rem;
+      width: 100%; max-width: 540px;
+      position: relative;
+      box-shadow: 0 0 60px rgba(139,0,0,0.2), 0 0 120px rgba(80,0,0,0.12), inset 0 0 40px rgba(0,0,0,0.8);
+      backdrop-filter: blur(4px);
+      animation: cardPulse 6s ease-in-out infinite;
+    }
+    @keyframes cardPulse {
+      0%,100%{box-shadow:0 0 60px rgba(139,0,0,0.2),0 0 120px rgba(80,0,0,0.12),inset 0 0 40px rgba(0,0,0,0.8);}
+      50%{box-shadow:0 0 80px rgba(139,0,0,0.35),0 0 160px rgba(80,0,0,0.2),inset 0 0 40px rgba(0,0,0,0.8);}
+    }
+    .card::before { content:'†'; position:absolute; font-family:'Cinzel Decorative',serif; color:var(--red); font-size:1.1rem; opacity:0.5; top:12px; left:16px; }
+    .card::after  { content:'†'; position:absolute; font-family:'Cinzel Decorative',serif; color:var(--red); font-size:1.1rem; opacity:0.5; bottom:12px; right:16px; }
+
+    /* Title */
+    .skull-icon { text-align:center; font-size:2.2rem; margin-bottom:0.4rem; filter:drop-shadow(0 0 12px rgba(255,40,40,0.5)); animation:skullFloat 4s ease-in-out infinite; }
+    @keyframes skullFloat { 0%,100%{transform:translateY(0);} 50%{transform:translateY(-5px);} }
+
+    h1 {
+      font-family:'UnifrakturMaguntia',cursive;
+      font-size:clamp(2rem,7vw,2.8rem); text-align:center; color:var(--white);
+      text-shadow:0 0 20px rgba(255,0,0,0.5),0 0 60px rgba(180,0,0,0.3);
+      line-height:1.1; letter-spacing:0.02em;
+    }
+    .subtitle {
+      font-family:'Crimson Text',serif; font-style:italic;
+      color:var(--muted); text-align:center;
+      font-size:1.05rem; margin-top:0.4rem; margin-bottom:1.8rem; letter-spacing:0.06em;
+    }
+
+    /* Section headers */
+    .section-head { display:flex; align-items:center; gap:10px; margin:2rem 0 1.4rem; }
+    .section-head-line { flex:1; height:1px; background:var(--red); opacity:0.35; }
+    .section-head-text {
+      font-family:'Cinzel Decorative',serif; font-size:0.6rem;
+      letter-spacing:0.2em; text-transform:uppercase;
+      color:var(--red-bright); opacity:0.75; white-space:nowrap;
+    }
+
+    /* Form */
+    .form-group { margin-bottom:1.25rem; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin-bottom:1.25rem; }
+
+    label {
+      display:block; font-size:0.75rem; letter-spacing:0.14em;
+      text-transform:uppercase; color:var(--muted);
+      margin-bottom:0.42rem; font-family:'Cinzel Decorative',serif; font-weight:400;
+    }
+    .opt { opacity:0.38; font-size:0.82em; font-family:'Crimson Text',serif; font-style:italic; text-transform:none; letter-spacing:0; }
+
+    input, select, textarea {
+      width:100%; background:rgba(255,255,255,0.03);
+      border:1px solid rgba(139,0,0,0.3); border-radius:2px;
+      color:var(--white); font-family:'Crimson Text',serif; font-size:1rem;
+      padding:0.68rem 0.9rem; outline:none;
+      transition:border-color 0.3s,box-shadow 0.3s,background 0.3s;
+      -webkit-appearance:none; appearance:none;
+    }
+    input::placeholder, textarea::placeholder { color:rgba(120,90,90,0.55); }
+    input:focus, select:focus, textarea:focus {
+      border-color:var(--red-bright);
+      box-shadow:0 0 0 2px rgba(192,57,43,0.12),0 0 16px rgba(139,0,0,0.18);
+      background:rgba(139,0,0,0.06);
+    }
+    textarea { resize:vertical; min-height:80px; line-height:1.55; }
+    select option { background:#100808; color:var(--white); }
+    .select-wrap { position:relative; }
+    .select-wrap::after { content:'▾'; position:absolute; right:12px; top:50%; transform:translateY(-50%); color:var(--red); pointer-events:none; font-size:0.85rem; }
+
+    /* Pill radios/checkboxes */
+    .choice-group { display:flex; flex-wrap:wrap; gap:0.45rem; margin-top:0.1rem; }
+    .radio-pill { display:flex; align-items:center; }
+    .radio-pill input[type=radio], .radio-pill input[type=checkbox] { display:none; }
+    .pill-label {
+      border:1px solid rgba(139,0,0,0.35); border-radius:2px;
+      padding:0.36rem 0.72rem; cursor:none;
+      font-family:'Crimson Text',serif; font-size:0.9rem;
+      color:rgba(220,190,190,0.7); letter-spacing:0.03em;
+      transition:border-color 0.2s,background 0.2s,color 0.2s;
+    }
+    .pill-label:hover { border-color:var(--red-bright); background:rgba(139,0,0,0.12); color:var(--white); }
+    .radio-pill input:checked + .pill-label {
+      border-color:var(--red-bright); background:rgba(139,0,0,0.22);
+      color:var(--white); box-shadow:0 0 8px rgba(192,57,43,0.2);
+    }
+
+    /* Slider */
+    .slider-wrap { display:flex; align-items:center; gap:1rem; }
+    .slider-wrap input[type=range] {
+      flex:1; padding:0; height:3px; cursor:none;
+      background:linear-gradient(to right, var(--red-bright) 0%, rgba(139,0,0,0.3) 100%);
+      border:none; border-radius:2px;
+    }
+    .slider-wrap input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance:none; width:14px; height:14px;
+      border-radius:50%; background:var(--red-bright); cursor:none;
+      box-shadow:0 0 6px rgba(192,57,43,0.6);
+    }
+    .slider-val { font-family:'Cinzel Decorative',serif; font-size:0.75rem; color:var(--red-bright); min-width:28px; text-align:right; }
+
+    .error-field { border-color:#ff2020 !important; box-shadow:0 0 0 2px rgba(255,32,32,0.18) !important; }
+
+    /* Button */
+    .btn-calc {
+      width:100%; margin-top:1.8rem; padding:1rem;
+      background:transparent; border:1.5px solid var(--white); border-radius:2px;
+      color:var(--white); font-family:'Cinzel Decorative',serif;
+      font-size:0.86rem; letter-spacing:0.18em; text-transform:uppercase;
+      cursor:none; position:relative; overflow:hidden;
+      transition:transform 0.25s,box-shadow 0.25s;
+      box-shadow:0 0 18px rgba(255,255,255,0.07);
+    }
+    .btn-calc:hover { transform:scale(1.025); box-shadow:0 0 30px rgba(255,255,255,0.35),0 0 70px rgba(255,255,255,0.12); }
+    .btn-calc:active { transform:scale(0.98); }
+    .btn-calc.loading { pointer-events:none; opacity:0.65; animation:btnFlicker 0.4s step-start infinite; }
+    @keyframes btnFlicker { 0%,100%{opacity:0.65;} 50%{opacity:0.35;} }
+
+    /* Result */
+    .result {
+      display:none; margin-top:2rem; padding:1.8rem 1.5rem;
+      border:1px solid rgba(139,0,0,0.55); border-radius:2px;
+      background:rgba(35,0,0,0.4); text-align:center; position:relative; overflow:hidden;
+    }
+    .result.visible { display:block; animation:resultFadeIn 1s ease forwards; }
+    @keyframes resultFadeIn { from{opacity:0;transform:translateY(12px);} to{opacity:1;transform:translateY(0);} }
+    .result::before { content:''; position:absolute; inset:0; background:linear-gradient(180deg,rgba(139,0,0,0.07) 0%,transparent 100%); pointer-events:none; }
+
+    .result-label { font-family:'Cinzel Decorative',serif; font-size:0.62rem; letter-spacing:0.22em; text-transform:uppercase; color:var(--muted); margin-bottom:0.6rem; }
+    .result-date {
+      font-family:'UnifrakturMaguntia',cursive; font-size:clamp(1.6rem,5vw,2.1rem); color:var(--red-glow);
+      text-shadow:0 0 20px rgba(255,30,30,0.6),0 0 50px rgba(180,0,0,0.4); line-height:1.2;
+      animation:glitch 6s infinite;
+    }
+    @keyframes glitch {
+      0%,90%,100%{text-shadow:0 0 20px rgba(255,30,30,0.6),0 0 50px rgba(180,0,0,0.4);transform:none;}
+      92%{transform:skew(-1deg);text-shadow:-3px 0 rgba(0,255,255,0.3),3px 0 rgba(255,0,0,0.5);}
+      94%{transform:skew(1deg)scaleX(1.005);}
+      96%{transform:none;text-shadow:3px 0 rgba(255,0,255,0.2),0 0 20px rgba(255,30,30,0.6);}
+    }
+    .result-age { font-size:0.9rem; color:var(--muted); margin-top:0.3rem; font-style:italic; }
+    .result-cause {
+      display:inline-block; margin-top:1rem;
+      border:1px solid rgba(139,0,0,0.5); border-radius:2px;
+      padding:0.35rem 1rem; font-size:0.73rem; letter-spacing:0.12em;
+      text-transform:uppercase; color:var(--red-bright);
+      font-family:'Cinzel Decorative',serif; background:rgba(80,0,0,0.2);
+      animation:causePulse 3s ease-in-out infinite;
+    }
+    @keyframes causePulse { 0%,100%{box-shadow:0 0 6px rgba(192,57,43,0.2);} 50%{box-shadow:0 0 18px rgba(192,57,43,0.45);} }
+
+    .fate-factors { margin-top:1.1rem; display:flex; flex-wrap:wrap; gap:0.4rem; justify-content:center; }
+    .fate-tag { font-size:0.72rem; padding:0.22rem 0.62rem; border-radius:2px; letter-spacing:0.05em; font-family:'Crimson Text',serif; }
+    .fate-good { border:1px solid rgba(0,120,60,0.5);  color:rgba(80,200,120,0.85); background:rgba(0,80,30,0.15); }
+    .fate-bad  { border:1px solid rgba(180,0,0,0.5);   color:rgba(255,110,90,0.9);  background:rgba(100,0,0,0.15); }
+    .fate-neut { border:1px solid rgba(100,80,80,0.4); color:rgba(180,150,150,0.75);background:rgba(50,30,30,0.15);}
+
+    .result-msg { margin-top:1.2rem; font-size:1.05rem; font-style:italic; color:rgba(210,180,180,0.75); line-height:1.55; letter-spacing:0.02em; }
+
+    .disclaimer { margin-top:2rem; text-align:center; font-size:0.72rem; color:rgba(100,70,70,0.5); letter-spacing:0.04em; line-height:1.5; }
+
+    @media(max-width:540px) {
+      .card { padding:2.2rem 1.4rem 2rem; }
+      .form-row { grid-template-columns:1fr; gap:0; }
+      .form-row .form-group { margin-bottom:1.25rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-dot"></div>
+<div class="fog-layer"></div>
+<div class="flicker-overlay"></div>
+<div class="drips" id="drips"></div>
+
+<div class="scene">
+ <div class="card">
+
+  <div class="skull-icon">☠</div>
+  <h1>Death Calculator</h1>
+  <p class="subtitle">Discover your final day&hellip;</p>
+
+  <!-- I. IDENTITY -->
+  <div class="section-head">
+    <div class="section-head-line"></div>
+    <span class="section-head-text">✦ I. Identity ✦</span>
+    <div class="section-head-line"></div>
+  </div>
+
+  <div class="form-group">
+    <label for="name">Your Name</label>
+    <input type="text" id="name" placeholder="Enter your name…" autocomplete="off" spellcheck="false"/>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label for="dob">Date of Birth</label>
+      <input type="date" id="dob"/>
+    </div>
+    <div class="form-group">
+      <label for="gender">Gender <span class="opt">(optional)</span></label>
+      <div class="select-wrap">
+        <select id="gender">
+          <option value="">— Unspecified —</option>
+          <option value="male">Male</option>
+          <option value="female">Female</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-row">
+    <div class="form-group">
+      <label for="height">Height (cm)</label>
+      <input type="number" id="height" placeholder="e.g. 175" min="100" max="250"/>
+    </div>
+    <div class="form-group">
+      <label for="weight">Weight (kg)</label>
+      <input type="number" id="weight" placeholder="e.g. 70" min="20" max="300"/>
+    </div>
+  </div>
+
+  <!-- II. HEALTH -->
+  <div class="section-head">
+    <div class="section-head-line"></div>
+    <span class="section-head-text">✦ II. Health &amp; Body ✦</span>
+    <div class="section-head-line"></div>
+  </div>
+
+  <div class="form-group">
+    <label>Physical Condition</label>
+    <div class="choice-group">
+      <label class="radio-pill"><input type="radio" name="fitness" value="athletic"><span class="pill-label">🏋 Athletic</span></label>
+      <label class="radio-pill"><input type="radio" name="fitness" value="fit"><span class="pill-label">🚶 Fit</span></label>
+      <label class="radio-pill"><input type="radio" name="fitness" value="average" checked><span class="pill-label">⚖ Average</span></label>
+      <label class="radio-pill"><input type="radio" name="fitness" value="unfit"><span class="pill-label">🛋 Unfit</span></label>
+      <label class="radio-pill"><input type="radio" name="fitness" value="disabled"><span class="pill-label">♿ Disabled</span></label>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="illness">Known Illnesses / Conditions <span class="opt">(optional)</span></label>
+    <textarea id="illness" placeholder="e.g. diabetes, hypertension, heart disease, cancer…"></textarea>
+  </div>
+
+  <div class="form-group">
+    <label for="sleep">Average Sleep per Night</label>
+    <div class="select-wrap">
+      <select id="sleep">
+        <option value="">— Select —</option>
+        <option value="under5">Under 5 hours (cursed)</option>
+        <option value="5to6">5–6 hours</option>
+        <option value="7to8" selected>7–8 hours (optimal)</option>
+        <option value="over9">9+ hours</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>Vices <span class="opt">(select all that apply)</span></label>
+    <div class="choice-group">
+      <label class="radio-pill"><input type="checkbox" name="vice" value="smoking"><span class="pill-label">🚬 Smoking</span></label>
+      <label class="radio-pill"><input type="checkbox" name="vice" value="alcohol"><span class="pill-label">🍺 Alcohol</span></label>
+      <label class="radio-pill"><input type="checkbox" name="vice" value="drugs"><span class="pill-label">💊 Substances</span></label>
+      <label class="radio-pill"><input type="checkbox" name="vice" value="junkfood"><span class="pill-label">🍔 Junk Food</span></label>
+      <label class="radio-pill"><input type="checkbox" name="vice" value="none"><span class="pill-label">✦ None</span></label>
+    </div>
+  </div>
+
+  <!-- III. THE PAST -->
+  <div class="section-head">
+    <div class="section-head-line"></div>
+    <span class="section-head-text">✦ III. The Past ✦</span>
+    <div class="section-head-line"></div>
+  </div>
+
+  <div class="form-group">
+    <label>Serious Past Events <span class="opt">(select all that apply)</span></label>
+    <div class="choice-group">
+      <label class="radio-pill"><input type="checkbox" name="event" value="accident"><span class="pill-label">🚗 Accident</span></label>
+      <label class="radio-pill"><input type="checkbox" name="event" value="surgery"><span class="pill-label">🔪 Surgery</span></label>
+      <label class="radio-pill"><input type="checkbox" name="event" value="trauma"><span class="pill-label">🧠 Trauma</span></label>
+      <label class="radio-pill"><input type="checkbox" name="event" value="neardeath"><span class="pill-label">💀 Near Death</span></label>
+      <label class="radio-pill"><input type="checkbox" name="event" value="poison"><span class="pill-label">☠ Poisoning</span></label>
+      <label class="radio-pill"><input type="checkbox" name="event" value="none"><span class="pill-label">✦ None</span></label>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="past_details">Describe briefly <span class="opt">(optional)</span></label>
+    <textarea id="past_details" placeholder="Briefly describe any serious past incidents…" style="min-height:65px;"></textarea>
+  </div>
+
+  <!-- IV. LIFESTYLE -->
+  <div class="section-head">
+    <div class="section-head-line"></div>
+    <span class="section-head-text">✦ IV. Lifestyle ✦</span>
+    <div class="section-head-line"></div>
+  </div>
+
+  <div class="form-group">
+    <label>Stress Level <span class="opt">(1 = peaceful, 10 = constantly burning)</span></label>
+    <div class="slider-wrap">
+      <input type="range" id="stress" min="1" max="10" value="5" oninput="document.getElementById('stressVal').textContent=this.value"/>
+      <span class="slider-val" id="stressVal">5</span>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="diet">Diet Quality</label>
+    <div class="select-wrap">
+      <select id="diet">
+        <option value="">— Select —</option>
+        <option value="excellent">Excellent (whole foods, balanced)</option>
+        <option value="good">Good (mostly healthy)</option>
+        <option value="average" selected>Average</option>
+        <option value="poor">Poor (mostly processed)</option>
+        <option value="terrible">Terrible (barely surviving)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="exercise">Exercise Frequency</label>
+    <div class="select-wrap">
+      <select id="exercise">
+        <option value="">— Select —</option>
+        <option value="daily">Daily</option>
+        <option value="often">4–5× per week</option>
+        <option value="sometimes" selected>2–3× per week</option>
+        <option value="rarely">Rarely</option>
+        <option value="never">Never (one with the couch)</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>Social Life</label>
+    <div class="choice-group">
+      <label class="radio-pill"><input type="radio" name="social" value="social"><span class="pill-label">👥 Social</span></label>
+      <label class="radio-pill"><input type="radio" name="social" value="balanced" checked><span class="pill-label">⚖ Balanced</span></label>
+      <label class="radio-pill"><input type="radio" name="social" value="loner"><span class="pill-label">🌑 Loner</span></label>
+      <label class="radio-pill"><input type="radio" name="social" value="hermit"><span class="pill-label">🕯 Hermit</span></label>
+    </div>
+  </div>
+
+  <!-- V. THE DARK QUESTIONS -->
+  <div class="section-head">
+    <div class="section-head-line"></div>
+    <span class="section-head-text">✦ V. The Dark Questions ✦</span>
+    <div class="section-head-line"></div>
+  </div>
+
+  <div class="form-group">
+    <label>Do you feel something is watching you?</label>
+    <div class="choice-group">
+      <label class="radio-pill"><input type="radio" name="watched" value="always"><span class="pill-label">Always</span></label>
+      <label class="radio-pill"><input type="radio" name="watched" value="sometimes" checked><span class="pill-label">Sometimes</span></label>
+      <label class="radio-pill"><input type="radio" name="watched" value="never"><span class="pill-label">Never</span></label>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>Have you ever cheated death?</label>
+    <div class="choice-group">
+      <label class="radio-pill"><input type="radio" name="cheated" value="yes"><span class="pill-label">Yes — narrowly</span></label>
+      <label class="radio-pill"><input type="radio" name="cheated" value="no" checked><span class="pill-label">Not yet</span></label>
+      <label class="radio-pill"><input type="radio" name="cheated" value="multiple"><span class="pill-label">Multiple times</span></label>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>How often do you think about death?</label>
+    <div class="choice-group">
+      <label class="radio-pill"><input type="radio" name="deaththink" value="never"><span class="pill-label">Never</span></label>
+      <label class="radio-pill"><input type="radio" name="deaththink" value="rarely" checked><span class="pill-label">Rarely</span></label>
+      <label class="radio-pill"><input type="radio" name="deaththink" value="often"><span class="pill-label">Often</span></label>
+      <label class="radio-pill"><input type="radio" name="deaththink" value="always"><span class="pill-label">Every day</span></label>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>Your relationship with risk</label>
+    <div class="choice-group">
+      <label class="radio-pill"><input type="radio" name="risk" value="thrill"><span class="pill-label">🔥 Thrill-seeker</span></label>
+      <label class="radio-pill"><input type="radio" name="risk" value="moderate" checked><span class="pill-label">⚖ Moderate</span></label>
+      <label class="radio-pill"><input type="radio" name="risk" value="cautious"><span class="pill-label">🛡 Cautious</span></label>
+      <label class="radio-pill"><input type="radio" name="risk" value="paranoid"><span class="pill-label">😰 Paranoid</span></label>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label>Do you believe in fate?</label>
+    <div class="choice-group">
+      <label class="radio-pill"><input type="radio" name="fate" value="yes"><span class="pill-label">Yes — all is written</span></label>
+      <label class="radio-pill"><input type="radio" name="fate" value="partial" checked><span class="pill-label">Somewhat</span></label>
+      <label class="radio-pill"><input type="radio" name="fate" value="no"><span class="pill-label">No — I make my own path</span></label>
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="lastwords">If you had to leave last words right now…</label>
+    <textarea id="lastwords" placeholder="Your final words to the world…" style="min-height:65px;"></textarea>
+  </div>
+
+  <!-- BUTTON -->
+  <button class="btn-calc" id="calcBtn" onclick="calculate()">
+    ☠ &nbsp;Seal My Fate&nbsp; ☠
+  </button>
+
+  <!-- RESULT -->
+  <div class="result" id="result">
+    <div class="result-label">Your Fate Has Been Sealed</div>
+    <div class="result-date" id="resultDate"></div>
+    <div class="result-age" id="resultAge"></div>
+    <div class="result-cause" id="resultCause"></div>
+    <div class="fate-factors" id="fateTags"></div>
+    <div class="result-msg" id="resultMsg"></div>
+  </div>
+
+  <p class="disclaimer">✝ Purely fictional &amp; for entertainment only. No real prediction is made. ✝</p>
+
+ </div>
+</div>
+
+<script>
+/* ── Cursor ── */
+const cur=document.getElementById('cursor'),dot=document.getElementById('cursor-dot');
+let mx=0,my=0,cx=0,cy=0;
+document.addEventListener('mousemove',e=>{mx=e.clientX;my=e.clientY;});
+(function loop(){cx+=(mx-cx)*0.18;cy+=(my-cy)*0.18;cur.style.left=cx+'px';cur.style.top=cy+'px';dot.style.left=mx+'px';dot.style.top=my+'px';requestAnimationFrame(loop);})();
+
+/* ── Blood drips ── */
+(function(){
+  const c=document.getElementById('drips');
+  for(let i=0;i<14;i++){
+    const d=document.createElement('div');d.className='drip';
+    const finalH=20+Math.random()*80,left=3+Math.random()*94,width=2+Math.random()*3.5;
+    d.style.cssText=`left:${left}%;width:${width}px;height:0;opacity:0.5;`;
+    c.appendChild(d);
+    setTimeout(function grow(){
+      let h=0;
+      const step=()=>{h+=0.4;d.style.height=Math.min(h,finalH)+'px';d.style.opacity=0.3+(h/finalH)*0.45;if(h<finalH)requestAnimationFrame(step);else setTimeout(()=>{let rh=finalH;const ret=()=>{rh-=0.6;d.style.height=Math.max(rh,0)+'px';if(rh>0)requestAnimationFrame(ret);else setTimeout(grow,2000+Math.random()*4000);};setTimeout(ret,1500+Math.random()*2500);},1500+Math.random()*2500);};
+      requestAnimationFrame(step);
+    },Math.random()*8000);
+  }
+})();
+
+/* ── Sound ── */
+function playCreepyTone(){
+  try{
+    const ctx=new(window.AudioContext||window.webkitAudioContext)();
+    [120,90,80,110,70].forEach((f,i)=>{
+      const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(ctx.destination);
+      o.type='sawtooth';const t=ctx.currentTime+i*0.22;
+      o.frequency.setValueAtTime(f,t);o.frequency.exponentialRampToValueAtTime(f*0.55,t+0.45);
+      g.gain.setValueAtTime(0.06,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.55);
+      o.start(t);o.stop(t+0.6);
+    });
+    const dr=ctx.createOscillator(),dg=ctx.createGain();dr.connect(dg);dg.connect(ctx.destination);
+    dr.type='sine';dr.frequency.setValueAtTime(50,ctx.currentTime);dr.frequency.linearRampToValueAtTime(28,ctx.currentTime+3.5);
+    dg.gain.setValueAtTime(0.09,ctx.currentTime);dg.gain.exponentialRampToValueAtTime(0.001,ctx.currentTime+3.5);
+    dr.start(ctx.currentTime);dr.stop(ctx.currentTime+3.5);
+  }catch(e){}
+}
+
+/* ── Data pools ── */
+const causePool={
+  smoking:["Pulmonary Failure","Chronic Obstructive Pulmonary Disease","Lung Carcinoma","Emphysema"],
+  alcohol:["Hepatic Cirrhosis","Alcohol-Induced Cardiomyopathy","Acute Hepatic Failure"],
+  drugs:["Acute Overdose","Multi-Organ Failure","Cardiac Arrhythmia"],
+  junkfood:["Coronary Artery Disease","Hypertensive Crisis","Type II Diabetes Complications"],
+  accident:["Traumatic Brain Injury","Internal Hemorrhage","Catastrophic Trauma"],
+  neardeath:["The Debt Finally Collected","Fate Reclaiming What Was Borrowed","Final Cardiac Event"],
+  thrill:["Extreme Sports Incident","Adrenaline-Induced Cardiac Arrest","Fatal Misadventure"],
+  default:["Natural Causes","Organ Senescence","Peaceful Passage","Cardiac Arrest","Cerebrovascular Event","Multi-Organ Failure","Sepsis","Silent Pneumonia","Renal Failure"]
+};
+
+const messages=[
+  "Your time is already draining. Every heartbeat is a countdown.",
+  "The reaper has marked his calendar. Have you made your peace?",
+  "Cherish the seconds. They are fewer than you believe.",
+  "The hourglass empties silently. Are you even listening?",
+  "What you do with the remaining time is all that matters now.",
+  "The darkness waits with infinite patience. You, however, do not.",
+  "Your shadow grows longer as the reckoning draws near.",
+  "They say the candle that burns brightest, burns fastest.",
+  "The void has been watching you since before you were born.",
+  "Every night you sleep is a rehearsal for what is coming.",
+  "The stars do not mourn. The earth will not pause. Only you will be gone.",
+  "You have been measured. The verdict was always inevitable.",
+  "Death does not knock. It simply… arrives.",
+  "Whatever you leave unfinished will remain unfinished. Choose wisely.",
+];
+
+/* ── Seeded RNG ── */
+function makeRng(seed){
+  let s=Math.abs(seed)%2147483647||1;
+  return ()=>{s=s*16807%2147483647;return(s-1)/2147483646;};
+}
+
+/* ── Helpers ── */
+const getChecked=n=>[...document.querySelectorAll(`input[name="${n}"]:checked`)].map(x=>x.value);
+const getRadio  =n=>{const e=document.querySelector(`input[name="${n}"]:checked`);return e?e.value:'';};
+
+/* ── Calculate ── */
+function calculate(){
+  const dob=document.getElementById('dob').value;
+  if(!dob){
+    const f=document.getElementById('dob');
+    f.classList.add('error-field');setTimeout(()=>f.classList.remove('error-field'),1800);f.focus();return;
+  }
+
+  const btn=document.getElementById('calcBtn'),result=document.getElementById('result');
+  btn.classList.add('loading');btn.textContent='⏳  Consulting the reaper…';result.classList.remove('visible');
+  playCreepyTone();
+
+  /* Gather */
+  const name    =document.getElementById('name').value.trim();
+  const gender  =document.getElementById('gender').value;
+  const heightCm=parseFloat(document.getElementById('height').value)||170;
+  const weightKg=parseFloat(document.getElementById('weight').value)||70;
+  const fitness =getRadio('fitness')||'average';
+  const illness =document.getElementById('illness').value.toLowerCase();
+  const sleep   =document.getElementById('sleep').value||'7to8';
+  const vices   =getChecked('vice');
+  const events  =getChecked('event');
+  const stress  =parseInt(document.getElementById('stress').value)||5;
+  const diet    =document.getElementById('diet').value||'average';
+  const exercise=document.getElementById('exercise').value||'sometimes';
+  const social  =getRadio('social')||'balanced';
+  const watched =getRadio('watched')||'sometimes';
+  const cheated =getRadio('cheated')||'no';
+  const deaththink=getRadio('deaththink')||'rarely';
+  const risk    =getRadio('risk')||'moderate';
+  const fatebelief=getRadio('fate')||'partial';
+
+  /* Seed */
+  let sn=0;for(const c of(name+dob+gender))sn+=c.charCodeAt(0);
+  const rng=makeRng(sn||999);
+
+  let life=74+rng()*14;
+  const tags=[];
+
+  /* Gender */
+  if(gender==='female'){life+=4+rng()*2;}
+  if(gender==='male')  {life-=1+rng()*1.5;}
+
+  /* BMI */
+  const bmi=weightKg/((heightCm/100)**2);
+  if(bmi<18.5)      {life-=3+rng()*2;tags.push({t:'Underweight',c:'bad'});}
+  else if(bmi<25)   {life+=2+rng()*1.5;tags.push({t:'Healthy BMI',c:'good'});}
+  else if(bmi<30)   {life-=1.5+rng();tags.push({t:'Overweight',c:'bad'});}
+  else              {life-=4+rng()*3;tags.push({t:'Obese BMI',c:'bad'});}
+
+  /* Fitness */
+  ({athletic:6,fit:3,average:0,unfit:-4,disabled:-2}[fitness]||0);
+  life+=({athletic:6,fit:3,average:0,unfit:-4,disabled:-2}[fitness]||0);
+  if(fitness==='athletic')tags.push({t:'Athletic',c:'good'});
+  if(fitness==='unfit')   tags.push({t:'Sedentary',c:'bad'});
+  if(fitness==='disabled')tags.push({t:'Resilient Spirit',c:'neut'});
+
+  /* Illness */
+  ['cancer','tumor','hiv','aids','heart disease','alzheimer','parkinson','multiple sclerosis','renal failure','cirrhosis']
+    .forEach(k=>{if(illness.includes(k)){life-=8+rng()*6;tags.push({t:k.charAt(0).toUpperCase()+k.slice(1),c:'bad'});}});
+  ['diabetes','hypertension','asthma','arthritis','epilepsy','depression','anxiety','thyroid','obesity']
+    .forEach(k=>{if(illness.includes(k))life-=3+rng()*2;});
+
+  /* Sleep */
+  life+=({'under5':-6,'5to6':-2,'7to8':2,'over9':-1}[sleep]||0);
+  if(sleep==='under5')tags.push({t:'Chronically Deprived',c:'bad'});
+  if(sleep==='7to8')  tags.push({t:'Well-Rested',c:'good'});
+
+  /* Vices */
+  if(vices.includes('smoking')) {life-=8+rng()*4;tags.push({t:'Smoker',c:'bad'});}
+  if(vices.includes('alcohol')) {life-=4+rng()*3;tags.push({t:'Drinker',c:'bad'});}
+  if(vices.includes('drugs'))   {life-=10+rng()*6;tags.push({t:'Substance Use',c:'bad'});}
+  if(vices.includes('junkfood')){life-=3+rng()*2;tags.push({t:'Junk Food',c:'bad'});}
+  if(vices.includes('none'))    {life+=3+rng()*2;tags.push({t:'Vice-Free',c:'good'});}
+
+  /* Events */
+  if(events.includes('accident')) life-=3+rng()*3;
+  if(events.includes('surgery'))  life-=1+rng()*2;
+  if(events.includes('trauma'))   {life-=4+rng()*3;tags.push({t:'Past Trauma',c:'bad'});}
+  if(events.includes('neardeath')){life-=5+rng()*4;tags.push({t:'Cheated Death',c:'neut'});}
+  if(events.includes('poison'))   life-=3+rng()*2;
+
+  /* Stress (1–10) */
+  life-=(stress-5)*0.7;
+  if(stress>=8)tags.push({t:'High Stress',c:'bad'});
+  if(stress<=2)tags.push({t:'Inner Peace',c:'good'});
+
+  /* Diet */
+  life+=({excellent:4,good:2,average:0,poor:-3,terrible:-7}[diet]||0);
+  if(diet==='excellent')tags.push({t:'Excellent Diet',c:'good'});
+  if(diet==='terrible') tags.push({t:'Terrible Diet',c:'bad'});
+
+  /* Exercise */
+  life+=({daily:4,often:3,sometimes:1,rarely:-2,never:-5}[exercise]||0);
+  if(exercise==='never')tags.push({t:'No Exercise',c:'bad'});
+  if(exercise==='daily')tags.push({t:'Daily Exercise',c:'good'});
+
+  /* Social */
+  life+=({social:2,balanced:1,loner:-2,hermit:-4}[social]||0);
+  if(social==='hermit')tags.push({t:'Social Isolation',c:'bad'});
+  if(social==='social')tags.push({t:'Strong Social Bonds',c:'good'});
+
+  /* Dark questions */
+  if(cheated==='multiple'){life-=5+rng()*4;tags.push({t:"Death's Debtor",c:'bad'});}
+  if(cheated==='yes')      life-=2+rng()*2;
+  if(risk==='thrill')      {life-=5+rng()*4;tags.push({t:'Risk-Taker',c:'bad'});}
+  if(risk==='paranoid')    {life+=2+rng();tags.push({t:'Hyper-Cautious',c:'neut'});}
+  if(deaththink==='always'){life-=2+rng()*2;tags.push({t:'Haunted',c:'bad'});}
+  if(watched==='always')   tags.push({t:'Being Watched',c:'neut'});
+  if(fatebelief==='yes')   {life+=1;tags.push({t:'Fatalist',c:'neut'});}
+  if(fatebelief==='no')    {life+=2+rng();tags.push({t:'Self-Determined',c:'good'});}
+
+  /* Floor */
+  const dobDate=new Date(dob),now=new Date();
+  const currentAge=(now-dobDate)/(365.25*86400000);
+  if(life<currentAge+5)life=currentAge+5+rng()*8;
+
+  /* Compute date */
+  const deathDate=new Date(dobDate.getTime()+life*365.25*86400000);
+  const months=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const formatted=`${months[deathDate.getMonth()]} ${deathDate.getDate()}, ${deathDate.getFullYear()}`;
+  const deathAge=Math.floor(life);
+  const yearsLeft=Math.max(0,Math.floor(life-currentAge));
+
+  /* Cause */
+  let pool=[];
+  if(vices.includes('smoking'))    pool.push(...causePool.smoking);
+  if(vices.includes('alcohol'))    pool.push(...causePool.alcohol);
+  if(vices.includes('drugs'))      pool.push(...causePool.drugs);
+  if(vices.includes('junkfood'))   pool.push(...causePool.junkfood);
+  if(events.includes('accident'))  pool.push(...causePool.accident);
+  if(events.includes('neardeath')) pool.push(...causePool.neardeath);
+  if(risk==='thrill')              pool.push(...causePool.thrill);
+  if(!pool.length)pool=[...causePool.default];
+  const cause=pool[Math.floor(rng()*pool.length)];
+
+  /* Message */
+  const msg=messages[Math.floor(rng()*messages.length)];
+
+  /* Render */
+  setTimeout(()=>{
+    document.getElementById('resultDate').textContent=formatted;
+    document.getElementById('resultAge').textContent=`At age ${deathAge} — ${yearsLeft} year${yearsLeft!==1?'s':''} remain`;
+    document.getElementById('resultCause').textContent=`✦ Cause: ${cause} ✦`;
+    document.getElementById('resultMsg').textContent=`"${msg}"`;
+
+    const tagsEl=document.getElementById('fateTags');tagsEl.innerHTML='';
+    const seen=new Set();
+    tags.filter(t=>{if(seen.has(t.t))return false;seen.add(t.t);return true;})
+      .slice(0,9)
+      .forEach(t=>{const s=document.createElement('span');s.className=`fate-tag fate-${t.c}`;s.textContent=t.t;tagsEl.appendChild(s);});
+
+    result.classList.add('visible');
+    btn.classList.remove('loading');btn.innerHTML='☠ &nbsp;Seal My Fate&nbsp; ☠';
+    setTimeout(()=>result.scrollIntoView({behavior:'smooth',block:'nearest'}),120);
+  },3000);
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.tagName!=='TEXTAREA')calculate();});
+document.getElementById('dob').max=new Date().toISOString().split('T')[0];
+</script>
+</body>
+</html>
